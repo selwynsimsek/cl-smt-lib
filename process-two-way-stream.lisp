@@ -19,10 +19,15 @@
   (let ((process (launch-program (format nil "~{~a~^ ~}" (cons program args))
                                  :input :stream
                                  :output :stream
+                                 :error-output :stream
                                  :wait nil
                                  :search t)))
+    (let ((error-output *error-output*)
+          (error-input (process-info-error-output process)))
+      (bt:make-thread (lambda () (loop while (open-stream-p error-input) do (write-char (read-char error-input) error-output)))))
+    ;(setf *error-output* (make-broadcast-stream *error-output* ))
     (make-instance 'process-two-way-stream
-      #+ALLEGRO :element-type #+ALLEGRO '(unsigned-byte 8)
-      :input (process-info-output process)
-      :output (process-info-input process)
-      :process process)))
+                   #+ALLEGRO :element-type #+ALLEGRO '(unsigned-byte 8)
+                   :input (process-info-output process)
+                   :output (process-info-input process)
+                   :process process)))
