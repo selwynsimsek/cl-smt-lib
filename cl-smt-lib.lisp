@@ -25,6 +25,9 @@
 (defvar *print-nil-as-list* nil
   "When bound to non-nil print NIL as the empty list.")
 
+(defvar *omit-package-names* nil
+  "When bound to non-NIL don't print symbol package names.")
+
 ;;; Implementation depends on if two-way-stream is a class or structure.
 
 (defclass smt (process-two-way-stream) ()
@@ -41,9 +44,24 @@
              (format stream "SMT: ~a~%~S"
                      (text condition) (smt condition)))))
 
+(defstruct smt-symbol (name "" :type string))
+
+(export '(make-smt-symbol smt-symbol))
+(defvar *print-smt-symbol* t "When bound to non-NIL prints SMT symbols using only their names.")
+
+(defmethod print-object :around ((object smt-symbol) stream)
+  (if *print-smt-symbol*
+      (write-string (smt-symbol-name object) stream)
+      (call-next-method)))
+
 (defmethod print-object :around ((object (eql nil)) stream)
   (if *print-nil-as-list*
       (write-string "()" stream)
+      (call-next-method)))
+
+(defmethod print-object :around ((object symbol) stream)
+  (if *omit-package-names*
+      (write-string (symbol-name object) stream)
       (call-next-method)))
 
 (defun write-to-smt (smt forms)
@@ -52,6 +70,8 @@ Sets READTABLE-CASE to :PRESERVE to ensure printing in valid
 case-sensitive smt libv2 format."
   (let ((*readtable* (copy-readtable nil))
         (*print-nil-as-list* t)
+        (*omit-package-names* t)
+        (*print-smt-symbol* t)
         (format-string "~{~S~^~%~}~%"))
     (setf (readtable-case *readtable*) :preserve)
     (format smt format-string forms)
